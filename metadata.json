@@ -1,0 +1,9 @@
+{
+  "name": "LavaFix Lori",
+  "description": "Gestión Inteligente de Electrodomésticos con IA avanzada para diagnóstico, reparación y mantenimiento.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
