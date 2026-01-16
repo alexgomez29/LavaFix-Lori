@@ -32,6 +32,7 @@ export interface Client {
     lastPaymentDate?: string;
     createdAt: number;
     image?: string; // New field for client photo
+    reminderSent?: boolean; // New field to track if reminder was sent
 }
 
 export interface PaymentRecord {

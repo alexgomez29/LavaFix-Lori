@@ -1,27 +1,18 @@
 import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { findRepairShops, generateSpeech, editApplianceImage, transcribeAudio, analyzeApplianceVideo } from '../services/geminiService';
+import { findRepairShops, generateSpeech, editApplianceImage, transcribeAudio } from '../services/geminiService';
 import VeoGenerator from './VeoGenerator';
 
 const DeviceDetails = () => {
-    // State for Maps Grounding
     const [shops, setShops] = useState<any[]>([]);
     const [isLoadingShops, setIsLoadingShops] = useState(false);
-
-    // State for TTS
     const [isPlayingTTS, setIsPlayingTTS] = useState(false);
-
-    // State for Image Editing
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [editedImage, setEditedImage] = useState<string | null>(null);
     const [editPrompt, setEditPrompt] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    // State for Veo
     const [isVeoOpen, setIsVeoOpen] = useState(false);
-
-    // State for Audio
     const [isRecording, setIsRecording] = useState(false);
     const [transcription, setTranscription] = useState('');
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -30,15 +21,7 @@ const DeviceDetails = () => {
     const handleFindShops = async () => {
         setIsLoadingShops(true);
         try {
-            // Mock location for demo purposes if geolocation fails or is denied
-            const lat = 40.7128; 
-            const lng = -74.0060;
-            
-            // In a real app, use navigator.geolocation.getCurrentPosition
-            
-            const result = await findRepairShops(lat, lng, "Repair shops for washing machines nearby");
-            
-            // Extract map links
+            const result = await findRepairShops(40.7128, -74.0060, "Repair shops for washing machines nearby");
             const places = result.chunks
                 .filter((chunk: any) => chunk.maps)
                 .map((chunk: any) => ({
@@ -46,7 +29,6 @@ const DeviceDetails = () => {
                     uri: chunk.maps.uri,
                     rating: chunk.maps.placeAnswerSources?.reviewSnippets?.[0]?.reviewText || "Sin reseñas"
                 }));
-            
             setShops(places);
         } catch (e) {
             console.error(e);
@@ -59,7 +41,7 @@ const DeviceDetails = () => {
         if (isPlayingTTS) return;
         setIsPlayingTTS(true);
         try {
-            const text = "Consejo Pro: Limpie el filtro de la bomba cada 3 meses para evitar olores y bloqueos. Revise las mangueras anualmente.";
+            const text = "Consejo Pro: Limpie el filtro de la bomba cada 3 meses para evitar olores y bloqueos.";
             const audioData = await generateSpeech(text);
             if (audioData) {
                 const audio = new Audio(`data:audio/mp3;base64,${audioData}`);
@@ -69,7 +51,6 @@ const DeviceDetails = () => {
                 setIsPlayingTTS(false);
             }
         } catch (e) {
-            console.error(e);
             setIsPlayingTTS(false);
         }
     };
@@ -87,7 +68,6 @@ const DeviceDetails = () => {
         if (!selectedImage || !editPrompt) return;
         setIsEditing(true);
         try {
-            // Strip header
             const base64 = selectedImage.split(',')[1];
             const result = await editApplianceImage(base64, editPrompt);
             if (result) setEditedImage(result);
@@ -108,12 +88,9 @@ const DeviceDetails = () => {
             mediaRecorderRef.current = mediaRecorder;
             audioChunksRef.current = [];
 
-            mediaRecorder.ondataavailable = (event) => {
-                audioChunksRef.current.push(event.data);
-            };
-
+            mediaRecorder.ondataavailable = (event) => audioChunksRef.current.push(event.data);
             mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/mp3' }); // Gemini handles many formats
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/mp3' });
                 const reader = new FileReader();
                 reader.onloadend = async () => {
                     const base64 = (reader.result as string).split(',')[1];
@@ -123,158 +100,150 @@ const DeviceDetails = () => {
                 reader.readAsDataURL(audioBlob);
                 stream.getTracks().forEach(track => track.stop());
             };
-
             mediaRecorder.start();
             setIsRecording(true);
         }
     };
 
     return (
-        <div className="flex flex-col min-h-screen bg-background-light dark:bg-background-dark">
+        <div className="flex flex-col min-h-screen bg-light-bg dark:bg-dark-bg text-slate-800 dark:text-slate-100 font-sans">
             <VeoGenerator isOpen={isVeoOpen} onClose={() => setIsVeoOpen(false)} baseImage={selectedImage || undefined} />
 
-            <header className="flex items-center justify-between border-b border-[#e5eaea] dark:border-[#1e3a36] bg-white dark:bg-[#10221f] px-6 py-3 sticky top-0 z-50">
-                 <div className="flex items-center gap-4">
-                     <Link to="/" className="text-xl font-bold dark:text-white">LavaFix</Link>
-                     <nav className="flex gap-4 ml-8">
-                         <Link to="/devices" className="text-primary text-sm font-bold">Detalles</Link>
-                         <Link to="/diagnosis" className="text-[#608a83] hover:text-primary text-sm">Diagnóstico</Link>
+            <header className="flex items-center justify-between glass-panel px-8 py-4 sticky top-0 z-50">
+                 <div className="flex items-center gap-6">
+                     <Link to="/" className="text-2xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">LavaFix</Link>
+                     <nav className="flex gap-4">
+                         <Link to="/devices" className="text-primary font-bold text-sm bg-primary/10 px-3 py-1 rounded-lg">Detalles</Link>
+                         <Link to="/diagnosis" className="text-slate-500 hover:text-slate-900 dark:hover:text-white text-sm font-medium px-3 py-1">Diagnóstico</Link>
                      </nav>
                  </div>
             </header>
 
-            <main className="flex-1 px-4 lg:px-20 py-8 max-w-7xl mx-auto w-full">
-                {/* Device Header */}
-                <div className="flex flex-wrap justify-between items-end gap-4 pb-6 border-b border-[#e5eaea] dark:border-[#1e3a36]">
-                    <div className="flex items-center gap-5">
-                        <div className="size-20 bg-white dark:bg-[#1e3a36] rounded-xl flex items-center justify-center border border-[#e5eaea] dark:border-[#2a4d48] shadow-sm">
-                            <span className="material-symbols-outlined text-4xl text-primary">local_laundry_service</span>
+            <main className="flex-1 px-4 lg:px-20 py-10 max-w-7xl mx-auto w-full relative">
+                <div className="flex flex-wrap justify-between items-end gap-6 pb-8 border-b border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-6">
+                        <div className="h-24 w-24 bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-2xl flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xl">
+                            <span className="material-symbols-outlined text-5xl text-primary drop-shadow-lg">local_laundry_service</span>
                         </div>
-                        <div className="flex flex-col gap-1">
-                            <h1 className="text-3xl font-black tracking-tight dark:text-white">Lavadora Principal</h1>
-                            <p className="text-orange-400 text-sm font-bold flex items-center gap-2">
-                                <span className="material-symbols-outlined text-sm">warning</span> Requiere Atención
-                            </p>
+                        <div>
+                            <h1 className="text-4xl font-black tracking-tight dark:text-white mb-2">Lavadora Principal</h1>
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 text-orange-500 border border-orange-500/20">
+                                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                                <span className="text-xs font-bold uppercase tracking-wide">Requiere Atención</span>
+                            </div>
                         </div>
                     </div>
                     <div className="flex gap-3">
                         <button 
                             onClick={handleFindShops}
                             disabled={isLoadingShops}
-                            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white dark:bg-[#1e3a36] border border-[#e5eaea] dark:border-[#2a4d48] text-sm font-bold shadow-sm hover:bg-gray-50 dark:text-white transition-colors"
+                            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
                         >
-                            <span className="material-symbols-outlined text-sm text-red-500">location_on</span>
+                            <span className="material-symbols-outlined text-rose-500">location_on</span>
                             {isLoadingShops ? "Buscando..." : "Buscar Técnicos"}
                         </button>
                         <button 
                             onClick={() => setIsVeoOpen(true)}
-                            className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-[#111817] text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90"
+                            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-primary text-white font-bold shadow-lg shadow-primary/30 hover:scale-[1.02] transition-transform"
                         >
-                            <span className="material-symbols-outlined text-sm">movie_filter</span> 
-                            Generar Video Ayuda
+                            <span className="material-symbols-outlined">movie_filter</span> 
+                            Video Ayuda (Veo)
                         </button>
                     </div>
                 </div>
 
-                {/* Main Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-                    {/* Left Column: Info & Tools */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-10">
                     <div className="space-y-6">
-                        {/* Audio Note */}
-                        <div className="bg-white dark:bg-[#152a26] p-4 rounded-xl border border-[#2a3e3b]">
-                            <h3 className="font-bold text-sm mb-3 dark:text-white">Nota de Voz</h3>
+                        <div className="glass p-6 rounded-2xl border border-white/20">
+                            <h3 className="font-bold text-sm mb-4 dark:text-white uppercase tracking-wider">Nota de Voz</h3>
                             <button 
                                 onClick={toggleRecording}
-                                className={`w-full py-3 rounded-lg flex items-center justify-center gap-2 font-bold transition-colors ${isRecording ? 'bg-red-500 text-white' : 'bg-[#f0f5f4] dark:bg-[#1e3a36] text-[#608a83]'}`}
+                                className={`w-full py-4 rounded-xl flex items-center justify-center gap-2 font-bold transition-all shadow-md ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                             >
                                 <span className="material-symbols-outlined">{isRecording ? 'stop_circle' : 'mic'}</span>
-                                {isRecording ? 'Detener Grabación' : 'Grabar Problema'}
+                                {isRecording ? 'Grabando...' : 'Grabar Problema'}
                             </button>
                             {transcription && (
-                                <div className="mt-3 p-3 bg-primary/10 rounded-lg text-xs dark:text-white italic">
+                                <div className="mt-4 p-4 bg-primary/5 border border-primary/10 rounded-xl text-sm italic text-slate-600 dark:text-slate-300">
                                     "{transcription}"
                                 </div>
                             )}
                         </div>
 
-                        {/* Maps Results */}
                         {shops.length > 0 && (
-                            <div className="bg-white dark:bg-[#152a26] p-4 rounded-xl border border-[#2a3e3b]">
-                                <h3 className="font-bold text-sm mb-3 dark:text-white">Talleres Cercanos</h3>
+                            <div className="glass p-6 rounded-2xl border border-white/20">
+                                <h3 className="font-bold text-sm mb-4 dark:text-white uppercase tracking-wider">Talleres</h3>
                                 <div className="space-y-3">
                                     {shops.map((shop, i) => (
-                                        <a key={i} href={shop.uri} target="_blank" rel="noreferrer" className="block p-3 bg-[#f0f5f4] dark:bg-[#1e3a36] rounded-lg hover:bg-primary/10">
-                                            <p className="font-bold text-sm dark:text-white truncate">{shop.title}</p>
-                                            <p className="text-xs text-[#608a83]">{shop.rating}</p>
+                                        <a key={i} href={shop.uri} target="_blank" rel="noreferrer" className="block p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-primary/5 transition-colors group border border-transparent hover:border-primary/20">
+                                            <p className="font-bold text-sm dark:text-white group-hover:text-primary transition-colors">{shop.title}</p>
+                                            <div className="flex gap-1 mt-1 text-yellow-500 text-xs"><span className="material-symbols-outlined text-sm">star</span> {shop.rating}</div>
                                         </a>
                                     ))}
                                 </div>
                             </div>
                         )}
 
-                        {/* Pro Tip TTS */}
-                        <div className="bg-gradient-to-br from-primary/20 to-transparent p-5 rounded-xl border border-primary/20">
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="material-symbols-outlined text-primary">lightbulb</span>
-                                <h3 className="font-bold text-sm dark:text-white">Consejo Pro</h3>
+                        <div className="bg-gradient-to-br from-secondary/20 to-primary/20 p-6 rounded-2xl border border-primary/10 relative overflow-hidden">
+                             <div className="absolute top-0 right-0 w-20 h-20 bg-primary/20 blur-xl rounded-full -mr-10 -mt-10"></div>
+                            <div className="flex items-center gap-2 mb-3 relative z-10">
+                                <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm"><span className="material-symbols-outlined text-primary text-sm">lightbulb</span></div>
+                                <h3 className="font-bold text-sm dark:text-white uppercase tracking-wider">Consejo Pro</h3>
                             </div>
-                            <p className="text-xs text-[#608a83] mb-4">Mantenimiento preventivo para la bomba de drenaje.</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4 relative z-10 leading-relaxed">Mantenimiento preventivo para la bomba de drenaje. Limpiar filtro cada 3 meses.</p>
                             <button 
                                 onClick={handlePlayTip}
                                 disabled={isPlayingTTS}
-                                className="flex items-center gap-2 text-xs font-bold text-primary hover:underline"
+                                className="flex items-center gap-2 text-xs font-bold text-primary hover:text-primary-dark relative z-10"
                             >
-                                <span className="material-symbols-outlined text-sm">{isPlayingTTS ? 'volume_up' : 'play_circle'}</span>
-                                {isPlayingTTS ? 'Reproduciendo...' : 'Escuchar Consejo'}
+                                <span className="material-symbols-outlined text-lg">{isPlayingTTS ? 'volume_up' : 'play_circle'}</span>
+                                Escuchar
                             </button>
                         </div>
                     </div>
 
-                    {/* Middle: Image AI */}
-                    <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-white dark:bg-[#152a26] rounded-xl border border-[#2a3e3b] p-6">
-                            <h3 className="text-lg font-bold dark:text-white mb-4 flex items-center gap-2">
-                                <span className="material-symbols-outlined text-primary">auto_fix</span>
-                                Análisis y Edición Visual
+                    <div className="lg:col-span-2">
+                        <div className="glass p-8 rounded-3xl border border-white/20 h-full">
+                            <h3 className="text-xl font-bold dark:text-white mb-6 flex items-center gap-3">
+                                <span className="p-2 bg-gradient-primary rounded-lg text-white shadow-lg"><span className="material-symbols-outlined">auto_fix</span></span>
+                                Estudio IA
                             </h3>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <div 
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="aspect-video bg-[#f0f5f4] dark:bg-[#1e3a36] rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors overflow-hidden"
-                                    >
-                                        {selectedImage ? (
-                                            <img src={selectedImage} alt="Uploaded" className="w-full h-full object-contain" />
-                                        ) : (
-                                            <>
-                                                <span className="material-symbols-outlined text-4xl text-[#608a83] mb-2">add_photo_alternate</span>
-                                                <p className="text-xs font-bold text-[#608a83]">Subir foto del daño</p>
-                                            </>
-                                        )}
-                                    </div>
-                                    <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="aspect-video bg-slate-50 dark:bg-slate-900/50 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all group relative overflow-hidden"
+                                >
+                                    {selectedImage ? (
+                                        <img src={selectedImage} alt="Uploaded" className="w-full h-full object-contain p-2" />
+                                    ) : (
+                                        <div className="text-center">
+                                            <span className="material-symbols-outlined text-5xl text-slate-300 group-hover:text-primary transition-colors mb-3">add_photo_alternate</span>
+                                            <p className="text-sm font-bold text-slate-400 group-hover:text-primary">Subir Evidencia</p>
+                                        </div>
+                                    )}
                                 </div>
+                                <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
 
                                 <div className="flex flex-col gap-4">
                                     <textarea
-                                        className="w-full bg-[#f0f5f4] dark:bg-[#1e3a36] border-none rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-primary h-24 resize-none"
-                                        placeholder="Instrucción IA: 'Resalta el óxido', 'Muestra cómo se vería limpio', 'Identifica la pieza'..."
+                                        className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent h-32 resize-none transition-shadow"
+                                        placeholder="Describe qué quieres que la IA analice o edite (ej. 'Resalta el área oxidada')..."
                                         value={editPrompt}
                                         onChange={(e) => setEditPrompt(e.target.value)}
                                     />
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-3 mt-auto">
                                         <button 
                                             onClick={handleEditImage}
                                             disabled={!selectedImage || isEditing}
-                                            className="flex-1 bg-primary text-[#111817] py-2 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50"
+                                            className="flex-1 bg-white dark:bg-slate-700 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-600 py-3 rounded-xl font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors"
                                         >
-                                            {isEditing ? "Procesando..." : "Editar con Gemini"}
+                                            {isEditing ? "Procesando..." : "Editar (Gemini)"}
                                         </button>
                                         <button 
                                             onClick={() => setIsVeoOpen(true)}
                                             disabled={!selectedImage}
-                                            className="flex-1 border border-primary text-primary py-2 rounded-lg font-bold text-sm hover:bg-primary/10 disabled:opacity-50"
+                                            className="flex-1 bg-gradient-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/30 hover:scale-105 transition-transform disabled:opacity-50 disabled:transform-none"
                                         >
                                             Animar (Veo)
                                         </button>
@@ -283,9 +252,11 @@ const DeviceDetails = () => {
                             </div>
 
                             {editedImage && (
-                                <div className="mt-6 border-t border-gray-100 dark:border-gray-700 pt-6">
-                                    <h4 className="text-sm font-bold dark:text-white mb-2">Resultado IA</h4>
-                                    <img src={editedImage} alt="Edited" className="rounded-lg max-h-64 object-contain border border-primary/50" />
+                                <div className="mt-8 border-t border-slate-200 dark:border-slate-700 pt-8 animate-float" style={{ animationDuration: '0s', animation: 'none' }}>
+                                    <h4 className="text-sm font-bold text-primary mb-4 uppercase tracking-wider">Resultado Generado</h4>
+                                    <div className="rounded-2xl overflow-hidden shadow-2xl border border-primary/20">
+                                        <img src={editedImage} alt="Edited" className="w-full h-auto object-cover" />
+                                    </div>
                                 </div>
                             )}
                         </div>
